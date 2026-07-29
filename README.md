@@ -12,11 +12,11 @@ A lightweight RESTful API built with Python and FastAPI for managing fruit inven
 
 ### 1. Clone the repository & set up environment
 ```bash
-git clone [https://github.com/your-username/fastapi-fruit-api.git](https://github.com/your-username/fastapi-fruit-api.git)
+git clone [https://github.com/RafeyAhmed01/fastapi-fruit-api.git](https://github.com/RafeyAhmed01/fastapi-fruit-api.git)
 cd fastapi-fruit-api
 
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # | On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
