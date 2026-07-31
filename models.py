@@ -5,5 +5,5 @@ from database import Base
 class DBFRUIT(Base):
     __tablename__ = "fruits"
 
-    id = Column(Integer, primary_order=True, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)

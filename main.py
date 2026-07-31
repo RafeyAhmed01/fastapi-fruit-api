@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import models
@@ -13,7 +13,18 @@ class Fruit(BaseModel):
     name: str
 
 
-fruits = []
+class FruitResponse(Fruit):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+def get_db():
+    db = SessionLocal()
+    try: 
+        yield db
+    finally: 
+        db.close()
 
 
 @app.get("/")
@@ -22,35 +33,44 @@ def root():
 
 
 @app.get("/fruits")
-def get_all_fruits():
-    return {"fruits": fruits}
+def get_all_fruits(db: Session = Depends(get_db)): # noqa: B008
+    return db.query(models.DBFRUIT).all()
 
 
-@app.post("/fruits", status_code=201)
-def add_fruit(fruit: Fruit):
-    fruits.append(fruit)
-    return fruit
+@app.post("/fruits", status_code=201, response_model=FruitResponse)
+def add_fruit(fruit: Fruit, db: Session = Depends(get_db)):
+    new_fruit = models.DBFRUIT(name=fruit.name)
+    db.add(new_fruit)
+    db.commit()
+    db.refresh(new_fruit)
+    return new_fruit
 
 
-@app.get("/fruits/{fruit_id}", response_model=Fruit)
-def get_fruit(fruit_id: int):
-    if fruit_id < 0 or fruit_id >= len(fruits):
-        raise HTTPException(status_code=404, detail="Fruit ID out of range")
-    return fruits[fruit_id]
+@app.get("/fruits/{fruit_id}", response_model=list[FruitResponse])
+def get_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
+    db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
+    if db_fruit is None:
+        raise HTTPException(status_code=404, detail="Fruit not found")
+    return db_fruit
 
 
-@app.put("/fruits/{fruit_id}", response_model=Fruit)
-def update_fruit(fruit_id: int, updated_fruit: Fruit):
-    if fruit_id < 0 or fruit_id >= len(fruits):
+@app.put("/fruits/{fruit_id}", response_model=FruitResponse )
+def update_fruit(fruit_id: int, updated_fruit: Fruit, db: Session = Depends(get_db)): #noqa: B008
+    db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
+    if db_fruit is None:
         raise HTTPException(
-            status_code=404, detail=f"Fruit with id={fruit_id} is out of range"
+            status_code=404, detail="Fruit doesn't exist"
         )
-    fruits[fruit_id] = updated_fruit
-    return updated_fruit
+    db_fruit.name = updated_fruit.name
+    db.commit()
+    db.refresh(db_fruit)
+    return db_fruit
 
 @app.delete("/fruits/{fruit_id}")
-def delete_fruit(fruit_id: int):
-    if fruit_id < 0 or fruit_id >= len(fruits):
+def delete_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
+    db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
+    if db_fruit is None: 
         raise HTTPException(status_code=404, detail=f"Fruit with id={fruit_id} doesn't exist")
-    deleted_fruit = fruits.pop(fruit_id)
-    return {"message": f"Successfully deleted {deleted_fruit.name}"}
+    db.delete(db_fruit)
+    db.commit()
+    return {"message": f"Successfully deleted {db_fruit.name}"}
