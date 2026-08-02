@@ -46,7 +46,7 @@ def add_fruit(fruit: Fruit, db: Session = Depends(get_db)):
     return new_fruit
 
 
-@app.get("/fruits/{fruit_id}", response_model=list[FruitResponse])
+@app.get("/fruits/{fruit_id}", response_model=FruitResponse)
 def get_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
     db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
     if db_fruit is None:
@@ -54,7 +54,7 @@ def get_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
     return db_fruit
 
 
-@app.put("/fruits/{fruit_id}", response_model=FruitResponse )
+@app.put("/fruits/{fruit_id}", response_model=FruitResponse)
 def update_fruit(fruit_id: int, updated_fruit: Fruit, db: Session = Depends(get_db)): #noqa: B008
     db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
     if db_fruit is None:

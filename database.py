@@ -1,9 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from config import settings
 
-SQLALCHEMY_DB_URL = "sqlite:///./fruits.db"
 engine = create_engine(
-    SQLALCHEMY_DB_URL, connect_args={"check_same_thread": False}
+    settings.database_url, connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
