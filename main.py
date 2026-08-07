@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Query
+from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -48,12 +49,19 @@ def root():
     return {"routes available": {"GET": ["/", "/fruits", "/fruits/{fruit_id}"], "POST": ["/fruits"], "PUT": ["/fruits/{fruit_id}"], "DELETE": ["/fruits/{fruit_id}"]}}
 
 
-@app.get("/fruits", response_model=list(FruitResponse))
-def get_all_fruits(db: Session = Depends(get_db)): # noqa: B008
-    skip: int = Query(default=-0, ge=0),
+@app.get("/fruits", response_model=list[FruitResponse])
+def get_all_fruits(db: Session = Depends(get_db), # noqa: B008
+    search: Optional[str] = Query(default=None, description="Search fruit by name"),
+    skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
-    fruits =  db.query(models.DBFRUIT).offset(skip).limit(limit).all()
-    return
+):
+    query = db.query(models.DBFRUIT)
+
+    if search: 
+        query = query.filter(models.DBFRUIT.name.ilike(f"%{search}%"))
+
+    fruits =  query.offset(skip).limit(limit).all()
+    return fruits
 
 
 @app.post("/fruits", status_code=status.HTTP_201_CREATED, response_model=FruitResponse)
@@ -66,7 +74,7 @@ def add_fruit(fruit: FruitCreate, db: Session = Depends(get_db)):
         return new_fruit
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"a fruit named {new_fruit} already exists")
+        raise HTTPException(status_code=400, detail=f"a fruit named {fruit.name} already exists")
 
 
 @app.get("/fruits/{fruit_id}", response_model=FruitResponse)
@@ -87,7 +95,7 @@ def update_fruit(fruit_id: int, updated_fruit: Fruit, db: Session = Depends(get_
     db_fruit.name = updated_fruit.name
     db.commit()
     db.refresh(db_fruit)
-    return {"fruit": db_fruit.name}
+    return db_fruit
 
 @app.delete("/fruits/{fruit_id}")
 def delete_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
