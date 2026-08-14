@@ -39,7 +39,7 @@ def root():
                 "DELETE /category/{category_id}",
             ],
         },
-        "docs": "/docs",  # Convenient link to Swagger UI!
+        "docs": "/docs",
     }
 
 
