@@ -10,47 +10,71 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Fruit API with SQLite")
 
+
 def get_db():
     db = SessionLocal()
-    try: 
+    try:
         yield db
-    finally: 
+    finally:
         db.close()
 
 
 @app.get("/")
 def root():
-    return {"routes available": 
-            {"GET": ["/", "/fruits", "/fruits/{fruit_id}"],
-             "POST": ["/fruits"], 
-             "PUT": ["/fruits/{fruit_id}"], 
-             "DELETE": ["/fruits/{fruit_id}"]
-             }}
+    return {
+        "message": "Welcome to the Fruit & Category API!",
+        "Routes Available": {
+            "Fruits": [
+                "GET /fruits",
+                "POST /fruits",
+                "GET /fruits/{fruit_id}",
+                "PUT /fruits/{fruit_id}",
+                "DELETE /fruits/{fruit_id}",
+            ],
+            "Category": [
+                "GET /category",
+                "POST /category",
+                "GET /category/{category_id}",
+                "PUT /category/{category_id}",
+                "DELETE /category/{category_id}",
+            ],
+        },
+        "docs": "/docs",  # Convenient link to Swagger UI!
+    }
 
 
 @app.get("/fruits", response_model=list[schemas.FruitResponse])
-def get_all_fruits(# noqa: B008
+def get_all_fruits(  # noqa: B008
     search: Optional[str] = Query(default=None, description="Search fruit by name"),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     query = db.query(models.DBFRUIT)
 
-    if search: 
+    if search:
         query = query.filter(models.DBFRUIT.name.ilike(f"%{search}%"))
 
-    fruits =  query.offset(skip).limit(limit).all()
+    fruits = query.offset(skip).limit(limit).all()
     return fruits
 
 
-@app.post("/fruits", status_code=status.HTTP_201_CREATED, response_model=schemas.FruitResponse)
+@app.post(
+    "/fruits", status_code=status.HTTP_201_CREATED, response_model=schemas.FruitResponse
+)
 def add_fruit(fruit: schemas.FruitCreate, db: Session = Depends(get_db)):
 
-    category = db.query(models.DBCategory).filter(models.DBCategory.id == fruit.category_id).first()
+    category = (
+        db.query(models.DBCategory)
+        .filter(models.DBCategory.id == fruit.category_id)
+        .first()
+    )
     if not category:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detal=f"category with id = {fruit.category_id} not found")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detal=f"category with id = {fruit.category_id} not found",
+        )
+
     new_fruit = models.DBFRUIT(name=fruit.name, category_id=fruit.category_id)
     db.add(new_fruit)
     try:
@@ -59,11 +83,13 @@ def add_fruit(fruit: schemas.FruitCreate, db: Session = Depends(get_db)):
         return new_fruit
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"a fruit named {fruit.name} already exists")
+        raise HTTPException(
+            status_code=400, detail=f"a fruit named {fruit.name} already exists"
+        )
 
 
 @app.get("/fruits/{fruit_id}", response_model=schemas.FruitResponse)
-def get_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
+def get_fruit(fruit_id: int, db: Session = Depends(get_db)):  # noqa: B008
     db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
     if db_fruit is None:
         raise HTTPException(status_code=404, detail="Fruit not found")
@@ -71,49 +97,111 @@ def get_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
 
 
 @app.put("/fruits/{fruit_id}", response_model=schemas.FruitResponse)
-def update_fruit(fruit_id: int, updated_fruit: schemas.Fruit, db: Session = Depends(get_db)): #noqa: B008
+def update_fruit(
+    fruit_id: int, updated_fruit: schemas.Fruit, db: Session = Depends(get_db)
+):  # noqa: B008
     db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
     if db_fruit is None:
-        raise HTTPException(
-            status_code=404, detail="Fruit doesn't exist"
-        )
+        raise HTTPException(status_code=404, detail="Fruit doesn't exist")
     db_fruit.name = updated_fruit.name
     db.commit()
     db.refresh(db_fruit)
-    return db_fruit 
+    return db_fruit
+
 
 @app.delete("/fruits/{fruit_id}")
-def delete_fruit(fruit_id: int, db: Session = Depends(get_db)): #noqa: B008
+def delete_fruit(fruit_id: int, db: Session = Depends(get_db)):  # noqa: B008
     db_fruit = db.query(models.DBFRUIT).filter(models.DBFRUIT.id == fruit_id).first()
-    if db_fruit is None: 
-        raise HTTPException(status_code=404, detail=f"Fruit with id={fruit_id} doesn't exist")
+    if db_fruit is None:
+        raise HTTPException(
+            status_code=404, detail=f"Fruit with id={fruit_id} doesn't exist"
+        )
     db.delete(db_fruit)
     db.commit()
     return {"message": f"Successfully deleted {db_fruit.name}"}
+
 
 @app.get("/category", response_model=list[schemas.CategoryResponse])
 def get_all_categories(
     db: Session = Depends(get_db),
     skip: int = Query(ge=0, default=0),
-    limit: int = Query(ge= 1, le=100, default=10)
-    ):
+    limit: int = Query(ge=1, le=100, default=10),
+):
 
     query = db.query(models.DBCategory)
 
     categories = query.offset(skip).limit(limit).all()
     return categories
-    
 
-@app.post("/category", status_code=status.HTTP_201_CREATED, response_model=schemas.CategoryResponse)
-def create_category(new_category: schemas.CategoryCreate, db: Session = Depends(get_db)):
+
+@app.post(
+    "/category",
+    status_code=status.HTTP_201_CREATED,
+    response_model=schemas.CategoryResponse,
+)
+def create_category(
+    new_category: schemas.CategoryCreate, db: Session = Depends(get_db)
+):
     db_category = models.DBCategory(name=new_category.name)
     db.add(db_category)
-    try: 
+    try:
         db.commit()
         db.refresh(db_category)
-        return db_category  
+        return db_category
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Category named {new_category.name} already exists!")
-        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category named {new_category.name} already exists!",
+        )
 
+
+@app.get("/category/{category_id}", response_model=schemas.CategoryWithFruitResponse)
+def get_category_with_fruits(category_id: int, db: Session = Depends(get_db)):
+    db_category = (
+        db.query(models.DBCategory).filter(models.DBCategory.id == category_id).first()
+    )
+    if not db_category:
+        raise HTTPException(status_code=400, detail="Provided ID is out of range")
+    return db_category
+
+
+@app.put("/category/{category_id}", response_model=schemas.CategoryResponse)
+def update_category(
+    category_id: int,
+    new_category: schemas.CategoryCreate,
+    db: Session = Depends(get_db),
+):
+    db_category = (
+        db.query(models.DBCategory).filter(models.DBCategory.id == category_id).first()
+    )
+    if not db_category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="category not found"
+        )
+    db_category.name = new_category.name
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category named {db_category.name} already exists!",
+        )
+    db.refresh(db_category)
+    return db_category
+
+
+@app.delete("/category/{category_id}")
+def delete_category(category_id: int, db: Session = Depends(get_db)):
+    db_category = (
+        db.query(models.DBCategory).filter(models.DBCategory.id == category_id).first()
+    )
+    if not db_category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Category with id = {category_id} not found",
+        )
+    db.delete(db_category)
+    db.commit()
+    return {"message": f"Successfully deleted {db_category}"}

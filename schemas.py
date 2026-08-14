@@ -48,3 +48,16 @@ class FruitResponse(Fruit):
 
     class Config:
         from_attributes = True
+
+class FruitWithoutCategoryResponse(Fruit):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+class CategoryWithFruitResponse(CategoryResponse):
+    fruits: list[FruitWithoutCategoryResponse] = []
+
+    class Config:
+        from_attributes = True
