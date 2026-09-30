@@ -8,7 +8,7 @@ import schemas
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Fruit API with SQLite")
+app = FastAPI(title="Fruit & Category API")
 
 
 def get_db():
@@ -72,7 +72,7 @@ def add_fruit(fruit: schemas.FruitCreate, db: Session = Depends(get_db)):
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detal=f"category with id = {fruit.category_id} not found",
+            detail=f"category with id = {fruit.category_id} not found",
         )
 
     new_fruit = models.DBFRUIT(name=fruit.name, category_id=fruit.category_id)
